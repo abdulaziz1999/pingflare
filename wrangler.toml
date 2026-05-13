@@ -1,6 +1,9 @@
 name = "pingflare"
 main = "src/index.ts"
 compatibility_date = "2025-04-01"
+
+[build]
+command = "npm run build"
 compatibility_flags = ["nodejs_compat"]
 
 [assets]
