@@ -4,7 +4,7 @@ import type { Db } from '../db'
 let cachedLocale: string | null = null
 let cachedLocaleAt = 0
 const LOCALE_TTL_MS = 5 * 60 * 1000
-import { alertState, monitors, incidents, monitorNotifications, notificationChannels, settings } from '../db/schema'
+import { alertState, incidents, monitorNotifications, notificationChannels, settings } from '../db/schema'
 import type { Monitor, AlertState, NotificationChannel } from '../db/schema'
 import { sendNotification } from '../notifications'
 import type { NotificationPayload } from '../notifications'
@@ -16,11 +16,10 @@ export interface AlertContext {
   message: string
   responseTimeMs?: number | null
   encryptionKey?: string
-  sslStatus?: string
 }
 
 export async function processAlert(ctx: AlertContext): Promise<void> {
-  const { db, monitor, status, message, responseTimeMs, encryptionKey, sslStatus } = ctx
+  const { db, monitor, status, message, responseTimeMs, encryptionKey } = ctx
   const now = Math.floor(Date.now() / 1000)
 
   let state = await db.query.alertState.findFirst({
@@ -63,19 +62,9 @@ export async function processAlert(ctx: AlertContext): Promise<void> {
       ? (monitor.toleranceMissed ?? 1)
       : (monitor.toleranceFailures ?? 1)
 
-    if (newFailures < tolerance) {
-      await db.update(monitors)
-        .set({ lastCheckedAt: now })
-        .where(eq(monitors.id, monitor.id))
-      return
-    }
+    if (newFailures < tolerance) return
 
-    if (state.surgePausedUntil && now < state.surgePausedUntil) {
-      await updateMonitorStatus(db, monitor.id, 'down', now, sslStatus)
-      return
-    }
-
-    await updateMonitorStatus(db, monitor.id, 'down', now, sslStatus)
+    if (state.surgePausedUntil && now < state.surgePausedUntil) return
 
     if (prevStatus !== 'down') {
       await openIncident(db, monitor.id, now)
@@ -158,8 +147,6 @@ export async function processAlert(ctx: AlertContext): Promise<void> {
       }
       await dispatchToChannels(channels, payload, encryptionKey)
     }
-
-    await updateMonitorStatus(db, monitor.id, 'up', now, sslStatus)
   }
 }
 
@@ -176,13 +163,6 @@ async function dispatchToChannels(channels: NotificationChannel[], payload: Noti
   await Promise.allSettled(channels.map(ch => sendNotification(ch, payload, encryptionKey)))
 }
 
-async function updateMonitorStatus(db: Db, monitorId: string, status: 'up' | 'down', now: number, sslStatus?: string) {
-  const updateSet: Record<string, unknown> = { lastStatus: status, lastCheckedAt: now }
-  if (sslStatus !== undefined) updateSet.sslStatus = sslStatus
-  await db.update(monitors)
-    .set(updateSet)
-    .where(eq(monitors.id, monitorId))
-}
 
 async function openIncident(db: Db, monitorId: string, now: number) {
   await db.insert(incidents).values({
