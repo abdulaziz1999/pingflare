@@ -2,9 +2,6 @@
   "name": "pingflare",
   "version": "1.4.1",
   "private": true,
-  "workspaces": [
-    "frontend"
-  ],
   "scripts": {
     "dev": "concurrently -n backend,frontend,cron -c blue,green,yellow \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:cron\"",
     "dev:backend": "wrangler dev --test-scheduled",
