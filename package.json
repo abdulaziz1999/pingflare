@@ -8,7 +8,7 @@
     "dev:frontend": "npm run dev -w frontend",
     "dev:cron": "node scripts/cron-sim.mjs",
     "dev:node": "tsx watch src/server.ts",
-    "build": "pnpm --filter frontend run build",
+    "build": "pnpm --dir frontend run build",
     "build:server": "tsup",
     "start": "node dist-server/server.js",
     "deploy": "npm run build && wrangler deploy",
